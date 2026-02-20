@@ -1,38 +1,128 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { db } from "./db";
+import {
+  users, drafts, comments, notifications, activityLogs,
+  type User, type InsertUser, type Draft, type InsertDraft, type Comment, type InsertComment, type Notification, type ActivityLog, type UpdateDraftRequest
+} from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
-// modify the interface with any CRUD methods
-// you might need
+const PostgresSessionStore = connectPg(session);
 
-export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+export function setupAuthSession() {
+  return session({
+    secret: process.env.REPLIT_ID || "draft-approval-secret",
+    resave: false,
+    saveUninitialized: false,
+    store: new PostgresSessionStore({ pool, createTableIfMissing: true }),
+    cookie: { secure: false } // Set to true in production with HTTPS
+  });
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+export interface IStorage {
+  getUser(id: number): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  
+  getDrafts(): Promise<Draft[]>;
+  getDraftsByStatus(status: string): Promise<Draft[]>;
+  getDraft(id: number): Promise<Draft | undefined>;
+  createDraft(draft: InsertDraft): Promise<Draft>;
+  updateDraft(id: number, updates: UpdateDraftRequest): Promise<Draft>;
+  deleteDraft(id: number): Promise<void>;
+  
+  getComments(draftId: number): Promise<Comment[]>;
+  createComment(comment: InsertComment): Promise<Comment>;
+  
+  getNotifications(userId: number): Promise<Notification[]>;
+  createNotification(notification: Omit<Notification, 'id' | 'createdAt' | 'readAt'>): Promise<Notification>;
+  markNotificationRead(id: number): Promise<Notification>;
+  
+  getActivityLogs(): Promise<ActivityLog[]>;
+  createActivityLog(log: Omit<ActivityLog, 'id' | 'timestamp'>): Promise<ActivityLog>;
+}
 
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+
+  async getDrafts(): Promise<Draft[]> {
+    return await db.select().from(drafts).orderBy(desc(drafts.createdAt));
+  }
+
+  async getDraftsByStatus(status: string): Promise<Draft[]> {
+    return await db.select().from(drafts).where(eq(drafts.status, status)).orderBy(desc(drafts.createdAt));
+  }
+
+  async getDraft(id: number): Promise<Draft | undefined> {
+    const [draft] = await db.select().from(drafts).where(eq(drafts.id, id));
+    return draft;
+  }
+
+  async createDraft(draft: InsertDraft): Promise<Draft> {
+    const [newDraft] = await db.insert(drafts).values({ ...draft, updatedAt: new Date() }).returning();
+    return newDraft;
+  }
+
+  async updateDraft(id: number, updates: UpdateDraftRequest): Promise<Draft> {
+    const [updated] = await db.update(drafts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(drafts.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDraft(id: number): Promise<void> {
+    await db.delete(drafts).where(eq(drafts.id, id));
+  }
+
+  async getComments(draftId: number): Promise<Comment[]> {
+    return await db.select().from(comments).where(eq(comments.draftId, draftId)).orderBy(desc(comments.createdAt));
+  }
+
+  async createComment(comment: InsertComment): Promise<Comment> {
+    const [newComment] = await db.insert(comments).values(comment).returning();
+    return newComment;
+  }
+
+  async getNotifications(userId: number): Promise<Notification[]> {
+    return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+  }
+
+  async createNotification(notification: Omit<Notification, 'id' | 'createdAt' | 'readAt'>): Promise<Notification> {
+    const [newNotif] = await db.insert(notifications).values(notification).returning();
+    return newNotif;
+  }
+
+  async markNotificationRead(id: number): Promise<Notification> {
+    const [updated] = await db.update(notifications)
+      .set({ readAt: new Date() })
+      .where(eq(notifications.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getActivityLogs(): Promise<ActivityLog[]> {
+    return await db.select().from(activityLogs).orderBy(desc(activityLogs.timestamp));
+  }
+
+  async createActivityLog(log: Omit<ActivityLog, 'id' | 'timestamp'>): Promise<ActivityLog> {
+    const [newLog] = await db.insert(activityLogs).values(log).returning();
+    return newLog;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
