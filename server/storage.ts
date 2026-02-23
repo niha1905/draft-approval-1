@@ -1,7 +1,7 @@
 import { db } from "./db";
 import {
-  users, drafts, comments, notifications, activityLogs,
-  type User, type InsertUser, type Draft, type InsertDraft, type Comment, type InsertComment, type Notification, type ActivityLog, type UpdateDraftRequest
+  users, drafts, comments, notifications, activityLogs, draftVersions,
+  type User, type InsertUser, type Draft, type InsertDraft, type Comment, type InsertComment, type Notification, type ActivityLog, type UpdateDraftRequest, type DraftVersion, type InsertDraftVersion
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 import session from "express-session";
@@ -23,7 +23,10 @@ export function setupAuthSession() {
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUsersByRole(role: string): Promise<User[]>;
+  getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserRole(id: number, role: string): Promise<User | undefined>;
   
   getDrafts(): Promise<Draft[]>;
   getDraftsByStatus(status: string): Promise<Draft[]>;
@@ -41,6 +44,10 @@ export interface IStorage {
   
   getActivityLogs(): Promise<ActivityLog[]>;
   createActivityLog(log: Omit<ActivityLog, 'id' | 'timestamp'>): Promise<ActivityLog>;
+  
+  getDraftVersions(draftId: number): Promise<DraftVersion[]>;
+  createDraftVersion(draftId: number, version: Omit<InsertDraftVersion, 'draftId'>): Promise<DraftVersion>;
+  getDraftVersion(versionId: number): Promise<DraftVersion | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -59,6 +66,19 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async updateUserRole(id: number, role: string): Promise<User | undefined> {
+    const [user] = await db.update(users).set({ role }).where(eq(users.id, id)).returning();
+    return user;
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, role));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
   async getDrafts(): Promise<Draft[]> {
     return await db.select().from(drafts).orderBy(desc(drafts.createdAt));
   }
@@ -73,13 +93,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDraft(draft: InsertDraft): Promise<Draft> {
-    const [newDraft] = await db.insert(drafts).values({ ...draft, updatedAt: new Date() }).returning();
+    const [newDraft] = await db.insert(drafts).values({ ...draft, updatedAt: new Date() } as any).returning();
     return newDraft;
   }
 
   async updateDraft(id: number, updates: UpdateDraftRequest): Promise<Draft> {
     const [updated] = await db.update(drafts)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...updates, updatedAt: new Date() } as any)
       .where(eq(drafts.id, id))
       .returning();
     return updated;
@@ -122,6 +142,20 @@ export class DatabaseStorage implements IStorage {
   async createActivityLog(log: Omit<ActivityLog, 'id' | 'timestamp'>): Promise<ActivityLog> {
     const [newLog] = await db.insert(activityLogs).values(log).returning();
     return newLog;
+  }
+
+  async getDraftVersions(draftId: number): Promise<DraftVersion[]> {
+    return await db.select().from(draftVersions).where(eq(draftVersions.draftId, draftId)).orderBy(desc(draftVersions.versionNumber));
+  }
+
+  async createDraftVersion(draftId: number, version: Omit<InsertDraftVersion, 'draftId'>): Promise<DraftVersion> {
+    const [newVersion] = await db.insert(draftVersions).values({ ...version, draftId } as any).returning();
+    return newVersion;
+  }
+
+  async getDraftVersion(versionId: number): Promise<DraftVersion | undefined> {
+    const [version] = await db.select().from(draftVersions).where(eq(draftVersions.id, versionId));
+    return version;
   }
 }
 

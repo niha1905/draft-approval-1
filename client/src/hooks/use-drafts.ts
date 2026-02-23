@@ -108,3 +108,24 @@ export function useApproveDraft() {
     }
   });
 }
+
+export function useDeleteDraft() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.drafts.delete.path, { id });
+      const res = await fetch(url, { method: api.drafts.delete.method, credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to delete draft');
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.drafts.list.path] });
+      toast({ title: 'Draft Deleted', description: 'Draft removed successfully.' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  });
+}

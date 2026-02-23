@@ -105,6 +105,15 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/drafts/:id' as const,
+      responses: {
+        200: z.custom<typeof drafts.$inferSelect>().optional(),
+        403: errorSchemas.unauthorized,
+        404: errorSchemas.notFound,
+      },
+    },
     approve: {
       method: 'PATCH' as const,
       path: '/api/drafts/:id/approve' as const,
@@ -131,7 +140,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/drafts/:draftId/comments' as const,
-      input: insertCommentSchema.omit({ draftId: true }),
+      input: insertCommentSchema.omit({ draftId: true, userId: true }),
       responses: {
         201: z.custom<typeof comments.$inferSelect>(),
         400: errorSchemas.validation,

@@ -2,15 +2,17 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
-import { 
-  LayoutDashboard, 
-  FileText, 
-  Settings, 
-  Bell, 
-  LogOut, 
-  User, 
+import {
+  LayoutDashboard,
+  FileText,
+  Settings,
+  Bell,
+  LogOut,
+  User,
   Menu,
-  CheckCircle2
+  CheckCircle2,
+  Activity,
+  Users
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -51,6 +53,10 @@ export function LayoutShell({ children }: { children: ReactNode }) {
   const navLinks = [
     { href: "/", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/drafts", icon: FileText, label: "Drafts & Approvals" },
+    ...(user?.role === "Head Authority" ? [
+      { href: "/activity-logs", icon: Activity, label: "Activity Logs" },
+      { href: "/user-management", icon: Users, label: "User Management" }
+    ] : []),
     { href: "/settings", icon: Settings, label: "Settings" },
   ];
 

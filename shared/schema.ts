@@ -50,9 +50,22 @@ export const activityLogs = pgTable("activity_logs", {
   timestamp: timestamp("timestamp").defaultNow(),
 });
 
+export const draftVersions = pgTable("draft_versions", {
+  id: serial("id").primaryKey(),
+  draftId: integer("draft_id").notNull(),
+  content: jsonb("content").$type<Record<string, any>>().notNull(),
+  files: jsonb("files").$type<string[]>(),
+  status: text("status").notNull(),
+  createdBy: integer("created_by").notNull(),
+  versionNumber: integer("version_number").notNull(),
+  changeDescription: text("change_description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertDraftSchema = createInsertSchema(drafts).omit({ id: true, createdAt: true, updatedAt: true, approvedAt: true });
 export const insertCommentSchema = createInsertSchema(comments).omit({ id: true, createdAt: true });
+export const insertDraftVersionSchema = createInsertSchema(draftVersions).omit({ id: true, createdAt: true });
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -60,6 +73,8 @@ export type Draft = typeof drafts.$inferSelect;
 export type InsertDraft = z.infer<typeof insertDraftSchema>;
 export type Comment = typeof comments.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
+export type DraftVersion = typeof draftVersions.$inferSelect;
+export type InsertDraftVersion = z.infer<typeof insertDraftVersionSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 

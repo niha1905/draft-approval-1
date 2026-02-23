@@ -11,6 +11,8 @@ import AuthPage from "@/pages/auth-page";
 import DashboardPage from "@/pages/dashboard-page";
 import DraftsPage from "@/pages/drafts-page";
 import SettingsPage from "@/pages/settings-page";
+import ActivityLogsPage from "@/pages/activity-logs-page";
+import UserManagementPage from "@/pages/user-management-page";
 
 // Wrapper to protect routes
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -37,6 +39,8 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/" component={() => <ProtectedRoute component={DashboardPage} />} />
       <Route path="/drafts" component={() => <ProtectedRoute component={DraftsPage} />} />
+      <Route path="/activity-logs" component={() => <ProtectedRoute component={ActivityLogsPage} />} />
+      <Route path="/user-management" component={() => <ProtectedRoute component={UserManagementPage} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
       <Route component={NotFound} />
     </Switch>
