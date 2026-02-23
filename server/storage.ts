@@ -12,11 +12,16 @@ const PostgresSessionStore = connectPg(session);
 
 export function setupAuthSession() {
   return session({
-    secret: process.env.REPLIT_ID || "draft-approval-secret",
+    secret: process.env.SESSION_SECRET || process.env.REPLIT_ID || "draft-approval-secret",
     resave: false,
     saveUninitialized: false,
     store: new PostgresSessionStore({ pool, createTableIfMissing: true }),
-    cookie: { secure: false } // Set to true in production with HTTPS
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
   });
 }
 
